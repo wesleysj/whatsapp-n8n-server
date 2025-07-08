@@ -6,6 +6,8 @@ const qrcode = require('qrcode');
 const http = require('http');
 const axios = require('axios');
 const mime = require('mime-types');
+
+const API_TOKEN = process.env.API_TOKEN;
 const port = process.env.PORT || 8080;
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +19,18 @@ app.use(express.urlencoded({
   extended: true
 }));
 app.use("/", express.static(__dirname + "/"))
+
+const validateToken = (req, res, next) => {
+  if (!API_TOKEN) return next();
+  const auth = req.headers['authorization'];
+  const token = auth && auth.startsWith('Bearer ') ? auth.substring(7) : req.query.api_key;
+  if (token !== API_TOKEN) {
+    return res.status(401).json({ status: false, message: 'Invalid API token' });
+  }
+  next();
+};
+
+app.use(validateToken);
 
 
 const client = new Client({
