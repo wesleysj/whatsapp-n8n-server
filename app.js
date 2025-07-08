@@ -33,7 +33,9 @@ const client = new Client({
       '--disable-gpu'
     ] }
 });
-client.initialize();
+if (process.env.NODE_ENV !== 'test') {
+  client.initialize();
+}
 
 io.on('connection', function(socket) {
   socket.emit('message', 'Server running...');
@@ -154,7 +156,10 @@ app.get('/group-participants', (req, res) => {
     });      
 });
 
+if (require.main === module) {
+  server.listen(port, function() {
+    console.log('App running on *: ' + port);
+  });
+}
 
-server.listen(port, function() {
-  console.log('App running on *: ' + port);
-});
+module.exports = app;
