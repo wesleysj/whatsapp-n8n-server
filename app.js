@@ -6,12 +6,23 @@ const qrcode = require('qrcode');
 const http = require('http');
 const axios = require('axios');
 const mime = require('mime-types');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const port = process.env.PORT || 8080;
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+
+app.use(helmet());
+app.use(cors());
+app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({
   extended: true
