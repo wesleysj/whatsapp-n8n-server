@@ -9,6 +9,7 @@ const mime = require('mime-types');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const API_TOKEN = process.env.API_TOKEN;
 const port = process.env.PORT || 8080;
 const app = express();
 const server = http.createServer(app);
