@@ -51,5 +51,4 @@ Get all chats (groups included).
 
 ### /group-participants
 
-Get all participants in a chat group.
-- Method: GET
+Get all participants in a chat group.- Method: GET
