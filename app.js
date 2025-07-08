@@ -1,6 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body, validationResult, query } = require('express-validator');
 const socketIO = require('socket.io');
 const qrcode = require('qrcode');
 const http = require('http');
@@ -88,8 +88,16 @@ io.on('connection', function(socket) {
 
 // Send message
 app.post('/send-message', [
-  body('number').notEmpty(),
-  body('message').notEmpty(),
+  body('number')
+    .trim()
+    .notEmpty()
+    .matches(/^\d+$/)
+    .withMessage('Number should contain digits only')
+    .escape(),
+  body('message')
+    .trim()
+    .notEmpty()
+    .escape(),
   ], async (req, res) => {
   const errors = validationResult(req).formatWith(({
     msg
@@ -140,15 +148,22 @@ app.get('/chats', (req, res) => {
 });
 
 // Get group participants
-app.get('/group-participants', (req, res) => {
-  let groupId = req.query.groupId;
-  
-  if (groupId === "") {
+app.get('/group-participants', [
+  query('groupId')
+    .trim()
+    .notEmpty()
+    .escape(),
+  ], (req, res) => {
+  const errors = validationResult(req).formatWith(({ msg }) => msg);
+
+  if (!errors.isEmpty()) {
     return res.status(422).json({
       status: false,
-      message: 'GroupID should be informed.'
+      message: errors.mapped()
     });
   }
+
+  let groupId = req.query.groupId;
   
   client.getChatById(groupId).then(response => {
     res.status(200).json({
@@ -167,5 +182,4 @@ app.get('/group-participants', (req, res) => {
 
 
 server.listen(port, function() {
-  console.log('App running on *: ' + port);
-});
+  console.log('App running on *: ' + port);});
