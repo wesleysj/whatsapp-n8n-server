@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const API_TOKEN = process.env.API_TOKEN;
+let webhookUrl = process.env.WEBHOOK_URL || null;
 const port = process.env.PORT || 8080;
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +42,32 @@ const validateToken = (req, res, next) => {
 
 app.use(validateToken);
 
+app.post('/webhook', [
+  body('url')
+    .trim()
+    .notEmpty()
+    .isURL()
+    .withMessage('Invalid URL')
+    .escape(),
+], (req, res) => {
+  const errors = validationResult(req).formatWith(({ msg }) => msg);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      status: false,
+      message: errors.mapped(),
+    });
+  }
+
+  webhookUrl = req.body.url;
+
+  res.status(200).json({
+    status: true,
+    message: 'Webhook URL updated',
+    webhookUrl,
+  });
+});
+
 
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: 'client-one' }),
@@ -57,6 +84,20 @@ const client = new Client({
     ] }
 });
 client.initialize();
+
+client.on('message', async (msg) => {
+  if (!webhookUrl) return;
+  try {
+    await axios.post(webhookUrl, {
+      id: msg.id._serialized,
+      from: msg.from,
+      to: msg.to,
+      body: msg.body,
+    });
+  } catch (err) {
+    console.error('Error sending webhook:', err.message);
+  }
+});
 
 io.on('connection', function(socket) {
   socket.emit('message', 'Server running...');

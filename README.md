@@ -35,6 +35,14 @@ API_TOKEN=<token> npm start
 
 Include this token in requests using the `Authorization` header or `api_key` query parameter.
 
+Optionally define `WEBHOOK_URL` to automatically forward incoming messages to this URL:
+
+```
+WEBHOOK_URL=https://example.com/webhook npm start
+```
+
+You can update this value later using the `/webhook` endpoint.
+
 ## Endpoints
 
 ### /send-message
@@ -51,4 +59,32 @@ Get all chats (groups included).
 
 ### /group-participants
 
-Get all participants in a chat group.- Method: GET
+Get all participants in a chat group.
+
+- Method: GET
+
+### /webhook
+
+Configure the URL that will receive incoming WhatsApp messages.
+
+- Method: POST
+- Body:
+
+```
+{
+  "url": "https://example.com/webhook"
+}
+```
+
+#### Payload sent to the webhook
+
+When set, every incoming message triggers a POST request to the configured URL with the following JSON body:
+
+```
+{
+  "id": "<message id>",
+  "from": "<sender>",
+  "to": "<receiver>",
+  "body": "<message text>"
+}
+```
