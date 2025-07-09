@@ -5,7 +5,7 @@ It uses [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) librar
 
 ## Installation
 
-Clone this repository: `git clone https://github.com/carvalhorafael/whatsapp-n8n-server.git`
+Clone this repository: `git clone https://github.com/wesleysj/whatsapp-n8n-server.git`
 
 Install dependencies: `npm install` 
 
