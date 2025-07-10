@@ -22,7 +22,17 @@ const limiter = rateLimit({
   max: 100,
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+        imgSrc: ["'self'", "data:"],
+      },
+    },
+  })
+);
 app.use(cors());
 app.use(limiter);
 app.use(express.json());
