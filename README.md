@@ -15,7 +15,7 @@ Install dependencies: `npm install`
 `npm start`
 
 
-## Conect device
+## Connect device
 
 Open a web browser `http://localhost:8080` and scan the QRCode.
 
