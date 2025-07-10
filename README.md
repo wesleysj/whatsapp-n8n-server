@@ -46,7 +46,7 @@ Run these commands before executing `npm start`.
 `npm start`
 
 
-## Conect device
+## Connect device
 
 Open a web browser `http://localhost:8080` and scan the QRCode.
 
