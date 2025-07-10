@@ -5,9 +5,40 @@ It uses [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) librar
 
 ## Installation
 
+
 Clone this repository: `git clone https://github.com/wesleysj/whatsapp-n8n-server.git`
 
-Install dependencies: `npm install` 
+Install dependencies: `npm install`
+
+## Prerequisites
+
+This project uses Puppeteer through `whatsapp-web.js`. Chromium requires a few
+system libraries on Ubuntu/Debian. Install them before running the server:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  ca-certificates \
+  fonts-liberation \
+  libappindicator3-1 \
+  libasound2 \
+  libatk-bridge2.0-0 \
+  libatk1.0-0 \
+  libcups2 \
+  libdbus-1-3 \
+  libxkbcommon0 \
+  libxcomposite1 \
+  libxdamage1 \
+  libxrandr2 \
+  libgbm1 \
+  libgtk-3-0 \
+  libnss3 \
+  lsb-release \
+  xdg-utils \
+  libxss1
+```
+
+Run these commands before executing `npm start`.
 
 
 ## Run server
