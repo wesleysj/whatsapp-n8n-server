@@ -93,7 +93,9 @@ const client = new Client({
       '--disable-gpu'
     ] }
 });
-client.initialize();
+if (process.env.NODE_ENV !== 'test') {
+  client.initialize();
+}
 
 client.on('message', async (msg) => {
   if (!webhookUrl) return;
@@ -243,5 +245,9 @@ app.get('/group-participants', [
     });      
 });
 
-
-server.listen(port, function() {  console.log('App running on *: ' + port);});
+if (require.main === module) {
+  server.listen(port, function() {
+    console.log('App running on *: ' + port);
+  });
+}
+module.exports = app;
