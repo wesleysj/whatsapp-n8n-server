@@ -4,3 +4,6 @@
 .wwebjs_auth.wwebjs_cache
 whatsapp-session*.json
 whatsapp-sessions.json
+.wwebjs_auth/
+.wwebjs_cache/
+
