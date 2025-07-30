@@ -57,8 +57,7 @@ app.post('/webhook', [
     .trim()
     .notEmpty()
     .isURL()
-    .withMessage('Invalid URL')
-    .escape(),
+    .withMessage('Invalid URL'),
 ], (req, res) => {
   const errors = validationResult(req).formatWith(({ msg }) => msg);
 
@@ -66,6 +65,15 @@ app.post('/webhook', [
     return res.status(422).json({
       status: false,
       message: errors.mapped(),
+    });
+  }
+
+  try {
+    new URL(req.body.url);
+  } catch (err) {
+    return res.status(422).json({
+      status: false,
+      message: { url: 'Invalid URL' },
     });
   }
 
