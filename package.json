@@ -28,7 +28,10 @@
     "mime-types": "^2.1.35",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.1",
-    "whatsapp-web.js": "git+https://github.com/wesleysj/whatsapp-web.js.git#main"
+    "whatsapp-web.js": "git+https://github.com/wesleysj/whatsapp-web.js.git#main",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^6.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

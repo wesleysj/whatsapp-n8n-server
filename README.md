@@ -98,6 +98,8 @@ Get all participants in a chat group.
 
 Configure the URL that will receive incoming WhatsApp messages.
 
+The provided URL must be a valid HTTP or HTTPS address.
+
 - Method: POST
 - Body:
 
