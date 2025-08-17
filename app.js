@@ -9,7 +9,12 @@ const mime = require('mime-types');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+const path = require('path');
+
 const API_TOKEN = process.env.API_TOKEN;
+const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
+const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
 let webhookUrl = process.env.WEBHOOK_URL || null;
 let ready = false;
 const port = process.env.PORT || 8080;
@@ -19,6 +24,46 @@ const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
 const { prepareProfileDir } = require('./util/prepareProfileDir');
+
+const pidFile = path.join(DATA_PATH, `${SESSION_NAME}.pid`);
+
+function ensureSingleInstance() {
+  try {
+    fs.mkdirSync(DATA_PATH, { recursive: true });
+    if (fs.existsSync(pidFile)) {
+      const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8'));
+      if (!isNaN(existingPid)) {
+        try {
+          process.kill(existingPid, 0);
+          console.error(
+            `Session already in use for data path ${DATA_PATH} by PID ${existingPid}`
+          );
+          process.exit(1);
+        } catch (err) {
+          fs.unlinkSync(pidFile);
+        }
+      }
+    }
+    fs.writeFileSync(pidFile, String(process.pid));
+    const cleanup = () => {
+      if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile);
+    };
+    process.on('exit', cleanup);
+    process.on('SIGINT', () => {
+      cleanup();
+      process.exit(0);
+    });
+    process.on('SIGTERM', () => {
+      cleanup();
+      process.exit(0);
+    });
+  } catch (err) {
+    console.error('Failed to ensure single instance:', err.message);
+    process.exit(1);
+  }
+}
+
+ensureSingleInstance();
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -99,8 +144,9 @@ app.post('/webhook', [
 
 prepareProfileDir();
 const client = new Client({
-  authStrategy: new LocalAuth({ clientId: 'client-one' }),
-  puppeteer: { headless: true,
+  authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
+  puppeteer: {
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -110,7 +156,8 @@ const client = new Client({
       '--no-zygote',
       '--single-process',
       '--disable-gpu'
-    ] }
+    ]
+  }
 });
 
 async function initWithRetries({ tries, baseDelayMs }) {
