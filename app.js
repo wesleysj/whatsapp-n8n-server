@@ -89,7 +89,7 @@ app.use(express.json());
 app.use(express.urlencoded({
   extended: true
 }));
-app.use("/", express.static(__dirname + "/"))
+app.use(express.static(path.join(__dirname, "public")))
 const validateToken = (req, res, next) => {
   if (!API_TOKEN) {
     return res
