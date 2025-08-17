@@ -16,6 +16,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
+const chromePath = process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -89,17 +90,17 @@ app.post('/webhook', [
 
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: 'client-one' }),
-  puppeteer: { headless: true,
+  puppeteer: {
+    headless: 'chrome',
+    executablePath: chromePath,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ] }
+      '--no-first-run'
+    ]
+  }
 });
 client.initialize();
 

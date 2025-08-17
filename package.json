@@ -18,6 +18,9 @@
   ],
   "author": "Rafael Carvalho <falecomigo@rafaelcarvalho.tv> (https://rafaelcarvalho.tv)",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0 <21"
+  },
   "dependencies": {
     "axios": "^1.4.0",
     "cors": "^2.8.5",
@@ -26,12 +29,10 @@
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
     "mime-types": "^2.1.35",
+    "puppeteer-core": "20.9.0",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.1",
-    "whatsapp-web.js": "git+https://github.com/wesleysj/whatsapp-web.js.git#main",
-    "helmet": "^7.0.0",
-    "cors": "^2.8.5",
-    "express-rate-limit": "^6.7.0"
+    "whatsapp-web.js": "1.22.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
