@@ -16,11 +16,14 @@ const API_TOKEN = process.env.API_TOKEN;
 const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
 const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
 let webhookUrl = process.env.WEBHOOK_URL || null;
+let ready = false;
 const port = process.env.PORT || 8080;
 const app = express();
+app.set('isReady', true);
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
+const { prepareProfileDir } = require('./util/prepareProfileDir');
 
 const pidFile = path.join(DATA_PATH, `${SESSION_NAME}.pid`);
 
@@ -97,6 +100,13 @@ const validateToken = (req, res, next) => {
 
 app.use(validateToken);
 
+app.get('/healthz', (req, res) => {
+  if (ready) {
+    return res.status(200).send('OK');
+  }
+  res.status(503).send('Service Unavailable');
+});
+
 app.post('/webhook', [
   body('url')
     .trim()
@@ -132,6 +142,7 @@ app.post('/webhook', [
 });
 
 
+prepareProfileDir();
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
   puppeteer: {
@@ -148,7 +159,26 @@ const client = new Client({
     ]
   }
 });
-client.initialize();
+
+async function initWithRetries({ tries, baseDelayMs }) {
+  for (let i = 1; i <= tries; i++) {
+    try {
+      await client.initialize();
+      return;
+    } catch (err) {
+      const transient =
+        err?.name === 'TargetCloseError' ||
+        ['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT'].includes(err?.code);
+      if (!transient || i === tries) {
+        throw err;
+      }
+      const delay = baseDelayMs * 2 ** (i - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+initWithRetries({ tries: 5, baseDelayMs: 1000 });
 
 client.on('message', async (msg) => {
   if (!webhookUrl) return;
@@ -176,9 +206,10 @@ io.on('connection', function(socket) {
   });
 
   client.on('ready', () => {
+      ready = true;
       socket.emit('ready', 'Device is ready!');
       socket.emit('message', 'Device is ready!');
-      socket.emit('qr', './check.svg')	
+      socket.emit('qr', './check.svg')
       console.log('Device is ready!');
   });
 
@@ -198,9 +229,11 @@ io.on('connection', function(socket) {
   });
 
   client.on('disconnected', (reason) => {
+    ready = false;
     socket.emit('message', 'Client disconnected!');
     console.log('Client disconnected!', reason);
-    client.initialize();
+    initWithRetries({ tries: 5, baseDelayMs: 1000 })
+      .catch(err => console.error('Reinitialize failed:', err));
   });
 });
 
@@ -300,3 +333,43 @@ app.get('/group-participants', [
 
 
 server.listen(port, function() {  console.log('App running on *: ' + port);});
+
+async function gracefulShutdown(signal, err) {
+  console.log(`Received ${signal}`);
+  if (err) {
+    console.error(err);
+  }
+
+  if (typeof app.set === 'function') {
+    app.set('isReady', false);
+  }
+
+  try {
+    await client.destroy();
+  } catch (destroyErr) {
+    console.error('Error destroying client:', destroyErr);
+  }
+
+  try {
+    const browser = client.pupBrowser;
+    if (browser) {
+      await browser.close();
+    }
+  } catch (browserErr) {
+    console.error('Error closing browser:', browserErr);
+  }
+
+  try {
+    await new Promise((resolve) => server.close(resolve));
+  } catch (serverErr) {
+    console.error('Error closing server:', serverErr);
+  }
+
+  const code = signal === 'SIGINT' ? 0 : 1;
+  process.exit(code);
+}
+
+process.on('SIGINT', gracefulShutdown.bind(null, 'SIGINT'));
+process.on('SIGTERM', gracefulShutdown.bind(null, 'SIGTERM'));
+process.on('uncaughtException', gracefulShutdown.bind(null, 'uncaughtException'));
+process.on('unhandledRejection', gracefulShutdown.bind(null, 'unhandledRejection'));
