@@ -13,6 +13,7 @@ const API_TOKEN = process.env.API_TOKEN;
 let webhookUrl = process.env.WEBHOOK_URL || null;
 const port = process.env.PORT || 8080;
 const app = express();
+app.set('isReady', true);
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
@@ -275,3 +276,43 @@ app.get('/group-participants', [
 
 
 server.listen(port, function() {  console.log('App running on *: ' + port);});
+
+async function gracefulShutdown(signal, err) {
+  console.log(`Received ${signal}`);
+  if (err) {
+    console.error(err);
+  }
+
+  if (typeof app.set === 'function') {
+    app.set('isReady', false);
+  }
+
+  try {
+    await client.destroy();
+  } catch (destroyErr) {
+    console.error('Error destroying client:', destroyErr);
+  }
+
+  try {
+    const browser = client.pupBrowser;
+    if (browser) {
+      await browser.close();
+    }
+  } catch (browserErr) {
+    console.error('Error closing browser:', browserErr);
+  }
+
+  try {
+    await new Promise((resolve) => server.close(resolve));
+  } catch (serverErr) {
+    console.error('Error closing server:', serverErr);
+  }
+
+  const code = signal === 'SIGINT' ? 0 : 1;
+  process.exit(code);
+}
+
+process.on('SIGINT', gracefulShutdown.bind(null, 'SIGINT'));
+process.on('SIGTERM', gracefulShutdown.bind(null, 'SIGTERM'));
+process.on('uncaughtException', gracefulShutdown.bind(null, 'uncaughtException'));
+process.on('unhandledRejection', gracefulShutdown.bind(null, 'unhandledRejection'));
