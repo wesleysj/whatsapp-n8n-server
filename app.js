@@ -16,6 +16,25 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
+const logger = require('./util/logger');
+
+let exitReason = 'unknown';
+const originalExit = process.exit.bind(process);
+process.exit = (code = 0) => {
+  logger.info({ reason: exitReason, code });
+  originalExit(code);
+};
+
+function shutdown(reason, code = 0, details = {}) {
+  exitReason = reason;
+  logger.info({ reason, code, ...details });
+  originalExit(code);
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('uncaughtException', (err) => shutdown('uncaughtException', 1, { error: err.message }));
+process.on('unhandledRejection', (reason) => shutdown('unhandledRejection', 1, { reason }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -103,25 +122,40 @@ const client = new Client({
 });
 client.initialize();
 
-client.on('message', async (msg) => {
-  if (!webhookUrl) return;
-  try {
-    await axios.post(webhookUrl, {
-      id: msg.id._serialized,
-      from: msg.from,
-      to: msg.to,
-      body: msg.body,
-    });
-  } catch (err) {
-    console.error('Error sending webhook:', err.message);
-  }
+client.once('ready', async () => {
+  const chromium = await client.pupBrowser.version();
+  logger.info({
+    node: process.version,
+    chromium,
+    dataPath: process.env.DATA_PATH,
+    launchFlags: client.options.puppeteer.args,
+    env: {
+      API_TOKEN,
+      WEBHOOK_URL: webhookUrl,
+      PORT: port,
+    }
+  }, 'Environment info');
 });
 
+client.on('message', async (msg) => {
+  if (!webhookUrl) return;
+    try {
+      await axios.post(webhookUrl, {
+        id: msg.id._serialized,
+        from: msg.from,
+        to: msg.to,
+        body: msg.body,
+      });
+    } catch (err) {
+      logger.error({ error: err.message }, 'Error sending webhook');
+    }
+  });
+
 io.on('connection', function(socket) {
-  socket.emit('message', 'Server running...');
+    socket.emit('message', 'Server running...');
 
   client.on('qr', (qr) => {
-      console.log('QR RECEIVED', qr);
+      logger.info({ qr }, 'QR RECEIVED');
       qrcode.toDataURL(qr, (err, url) => {
         socket.emit('qr', url);
         socket.emit('message', 'QRCode received, point the camera on your cell phone!');
@@ -132,27 +166,27 @@ io.on('connection', function(socket) {
       socket.emit('ready', 'Device is ready!');
       socket.emit('message', 'Device is ready!');
       socket.emit('qr', './check.svg')	
-      console.log('Device is ready!');
+        logger.info('Device is ready!');
   });
 
   client.on('authenticated', () => {
       socket.emit('authenticated', 'Server Authenticated!');
       socket.emit('message', 'Server Authenticated!');
-      console.log('Server Authenticated!');
+        logger.info('Server Authenticated!');
   });
 
   client.on('auth_failure', function() {
       socket.emit('message', 'Authentication failed, restarting...');
-      console.error('Authentication failed.');
+        logger.error('Authentication failed.');
   });
 
   client.on('change_state', state => {
-    console.log('Connection status: ', state );
+      logger.info({ state }, 'Connection status');
   });
 
   client.on('disconnected', (reason) => {
     socket.emit('message', 'Client disconnected!');
-    console.log('Client disconnected!', reason);
+      logger.info({ reason }, 'Client disconnected');
     client.initialize();
   });
 });
@@ -252,4 +286,5 @@ app.get('/group-participants', [
 });
 
 
-server.listen(port, function() {  console.log('App running on *: ' + port);});
+  server.listen(port, function() {  logger.info({ port }, 'App running');});
+
