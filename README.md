@@ -74,7 +74,20 @@ WEBHOOK_URL=https://example.com/webhook npm start
 
 You can update this value later using the `/webhook` endpoint.
 
+## Health check
+
+The server exposes `GET /healthz` which reports readiness. Use this route for
+health checks in Nginx or PM2. Example configuration files `nginx.conf` and
+`ecosystem.config.js` are provided.
+
 ## Endpoints
+
+### /healthz
+
+Health check endpoint. Returns status `200` only when the WhatsApp client is ready;
+otherwise responds with `503`.
+
+- Method: GET
 
 ### /send-message
 
