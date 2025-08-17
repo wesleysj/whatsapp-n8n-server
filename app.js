@@ -101,7 +101,26 @@ const client = new Client({
       '--disable-gpu'
     ] }
 });
-client.initialize();
+
+async function initWithRetries({ tries, baseDelayMs }) {
+  for (let i = 1; i <= tries; i++) {
+    try {
+      await client.initialize();
+      return;
+    } catch (err) {
+      const transient =
+        err?.name === 'TargetCloseError' ||
+        ['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT'].includes(err?.code);
+      if (!transient || i === tries) {
+        throw err;
+      }
+      const delay = baseDelayMs * 2 ** (i - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+initWithRetries({ tries: 5, baseDelayMs: 1000 });
 
 client.on('message', async (msg) => {
   if (!webhookUrl) return;
@@ -153,7 +172,8 @@ io.on('connection', function(socket) {
   client.on('disconnected', (reason) => {
     socket.emit('message', 'Client disconnected!');
     console.log('Client disconnected!', reason);
-    client.initialize();
+    initWithRetries({ tries: 5, baseDelayMs: 1000 })
+      .catch(err => console.error('Reinitialize failed:', err));
   });
 });
 
