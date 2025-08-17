@@ -6,9 +6,12 @@ const { execSync } = require('child_process');
 
 /**
  * Ensure the profile directory exists and clean leftover Chrome locks.
+ *
+ * @param {string} dataPath - The base directory where session data lives.
  */
-function prepareProfileDir() {
-  const dataPath = process.env.DATA_PATH || path.resolve('./data');
+function prepareProfileDir(
+  dataPath = process.env.DATA_PATH || path.resolve('./data')
+) {
   fs.mkdirSync(dataPath, { recursive: true });
 
   const safeFlag = process.env.SAFE_LOCK_CLEANUP;

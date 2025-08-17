@@ -144,7 +144,7 @@ app.post('/webhook', [
 });
 
 
-prepareProfileDir();
+prepareProfileDir(DATA_PATH);
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
   puppeteer: {
