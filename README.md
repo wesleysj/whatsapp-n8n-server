@@ -74,6 +74,14 @@ WEBHOOK_URL=https://example.com/webhook npm start
 
 You can update this value later using the `/webhook` endpoint.
 
+Define optional variables `SESSION_NAME` and `DATA_PATH` to run multiple independent sessions:
+
+```
+SESSION_NAME=my-session DATA_PATH=/path/to/data npm start
+```
+
+The server aborts on start if another process is using the same `DATA_PATH`.
+
 ## Endpoints
 
 ### /send-message
