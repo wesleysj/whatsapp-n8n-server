@@ -15,6 +15,8 @@ const path = require('path');
 const API_TOKEN = process.env.API_TOKEN;
 const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
 const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
+const chromePath =
+  process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
 let webhookUrl = process.env.WEBHOOK_URL || null;
 let ready = false;
 const port = process.env.PORT || 8080;
@@ -147,6 +149,7 @@ const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
   puppeteer: {
     headless: true,
+    executablePath: chromePath,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
