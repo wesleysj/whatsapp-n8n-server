@@ -91,12 +91,30 @@ app.use(express.urlencoded({
 }));
 app.use("/", express.static(__dirname + "/"))
 const validateToken = (req, res, next) => {
-  if (!API_TOKEN) return next();
-  const auth = req.headers["authorization"];
-  const token = auth && auth.startsWith("Bearer ") ? auth.substring(7) : req.query.api_key;
-  if (token !== API_TOKEN) {
-    return res.status(401).json({ status: false, message: "Invalid API token" });
+  if (!API_TOKEN) {
+    return res
+      .status(401)
+      .json({ status: false, message: "API token is required" });
   }
+
+  const auth = req.headers["authorization"];
+  const token =
+    auth && auth.startsWith("Bearer ")
+      ? auth.substring(7)
+      : req.query.api_key;
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ status: false, message: "API token is required" });
+  }
+
+  if (token !== API_TOKEN) {
+    return res
+      .status(401)
+      .json({ status: false, message: "Invalid API token" });
+  }
+
   next();
 };
 

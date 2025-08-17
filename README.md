@@ -52,7 +52,7 @@ Open a web browser `http://localhost:8080` and scan the QRCode.
 
 ## Authentication
 
-Generate a token with:
+All requests require an API token. Generate a token with:
 
 ```
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -64,7 +64,7 @@ Start the server with the token exported as `API_TOKEN`:
 API_TOKEN=<token> npm start
 ```
 
-Include this token in requests using the `Authorization` header or `api_key` query parameter.
+Requests without this token, or with an invalid token, receive an `HTTP 401` response. Include the token using the `Authorization` header or `api_key` query parameter.
 
 Optionally define `WEBHOOK_URL` to automatically forward incoming messages to this URL:
 
