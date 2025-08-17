@@ -11,6 +11,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const API_TOKEN = process.env.API_TOKEN;
 let webhookUrl = process.env.WEBHOOK_URL || null;
+let ready = false;
 const port = process.env.PORT || 8080;
 const app = express();
 const server = http.createServer(app);
@@ -51,6 +52,13 @@ const validateToken = (req, res, next) => {
 };
 
 app.use(validateToken);
+
+app.get('/healthz', (req, res) => {
+  if (ready) {
+    return res.status(200).send('OK');
+  }
+  res.status(503).send('Service Unavailable');
+});
 
 app.post('/webhook', [
   body('url')
@@ -129,9 +137,10 @@ io.on('connection', function(socket) {
   });
 
   client.on('ready', () => {
+      ready = true;
       socket.emit('ready', 'Device is ready!');
       socket.emit('message', 'Device is ready!');
-      socket.emit('qr', './check.svg')	
+      socket.emit('qr', './check.svg')
       console.log('Device is ready!');
   });
 
@@ -151,6 +160,7 @@ io.on('connection', function(socket) {
   });
 
   client.on('disconnected', (reason) => {
+    ready = false;
     socket.emit('message', 'Client disconnected!');
     console.log('Client disconnected!', reason);
     client.initialize();
