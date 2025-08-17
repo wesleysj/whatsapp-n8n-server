@@ -16,6 +16,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 const Util = require('./util/Util');
+const { prepareProfileDir } = require('./util/prepareProfileDir');
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -87,6 +88,7 @@ app.post('/webhook', [
 });
 
 
+prepareProfileDir();
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: 'client-one' }),
   puppeteer: { headless: true,
