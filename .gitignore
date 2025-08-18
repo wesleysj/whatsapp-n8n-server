@@ -1,6 +1,7 @@
 # node modules
 *node_modules
 
+ecosystem.config.js
 .wwebjs_auth.wwebjs_cache
 whatsapp-session*.json
 whatsapp-sessions.json
