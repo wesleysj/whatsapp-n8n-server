@@ -12,6 +12,10 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 
+const logger = require('./util/logger');
+const Util = require('./util/Util');
+const { prepareProfileDir } = require('./util/prepareProfileDir');
+
 const API_TOKEN = process.env.API_TOKEN;
 const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
 const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
@@ -24,10 +28,18 @@ const app = express();
 app.set('isReady', true);
 const server = http.createServer(app);
 const io = socketIO(server);
-const Util = require('./util/Util');
-const { prepareProfileDir } = require('./util/prepareProfileDir');
 
 const pidFile = path.join(DATA_PATH, `${SESSION_NAME}.pid`);
+
+const originalProcessExit = process.exit.bind(process);
+process.exit = (code = 0, reason) => {
+  if (reason) {
+    logger.info(`Process exiting with code ${code}: ${reason}`);
+  } else {
+    logger.info(`Process exiting with code ${code}`);
+  }
+  originalProcessExit(code);
+};
 
 function ensureSingleInstance() {
   try {
@@ -40,7 +52,7 @@ function ensureSingleInstance() {
           console.error(
             `Session already in use for data path ${DATA_PATH} by PID ${existingPid}`
           );
-          process.exit(1);
+          process.exit(1, 'session in use');
         } catch (err) {
           fs.unlinkSync(pidFile);
         }
@@ -53,15 +65,15 @@ function ensureSingleInstance() {
     process.on('exit', cleanup);
     process.on('SIGINT', () => {
       cleanup();
-      process.exit(0);
+      process.exit(0, 'SIGINT');
     });
     process.on('SIGTERM', () => {
       cleanup();
-      process.exit(0);
+      process.exit(0, 'SIGTERM');
     });
   } catch (err) {
     console.error('Failed to ensure single instance:', err.message);
-    process.exit(1);
+    process.exit(1, 'ensureSingleInstance failure');
   }
 }
 
@@ -387,7 +399,7 @@ async function gracefulShutdown(signal, err) {
   }
 
   const code = signal === 'SIGINT' ? 0 : 1;
-  process.exit(code);
+  process.exit(code, signal);
 }
 
 process.on('SIGINT', gracefulShutdown.bind(null, 'SIGINT'));
