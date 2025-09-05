@@ -180,20 +180,27 @@ app.post('/webhook', [
 
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
+  takeoverOnConflict: true,
+  restartOnAuthFail: true,
   puppeteer: {
     headless: true,
     executablePath: chromePath,
+    protocolTimeout: 180000, // 180s
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+      '--disable-extensions',
       '--no-first-run',
       '--no-zygote',
       '--single-process',
-      '--disable-gpu'
-    ]
-  }
+    ],
+  },
+  // padronizar user-agent ajuda algumas vezes
+  userAgent:
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
 });
 
 // --- DEBUG: listeners únicos + logs claros ---
@@ -255,19 +262,23 @@ async function initWithRetries({ tries, baseDelayMs }) {
       await client.initialize();
       return;
     } catch (err) {
-      const transient =
-        err?.name === 'TargetCloseError' ||
+      const isNet =
         ['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ETIMEDOUT'].includes(err?.code);
-      if (!transient || i === tries) {
-        throw err;
-      }
+      const isTimeout =
+        /ProtocolError|TimeoutError|timed out/i.test(err?.message) || err?.name === 'TimeoutError';
+
+      const transient = isNet || isTimeout || err?.name === 'TargetCloseError';
+      console.warn(`[init] attempt=${i} transient=${!!transient} err=`, err?.message);
+
+      if (!transient || i === tries) throw err;
+
       const delay = baseDelayMs * 2 ** (i - 1);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
 }
 
-initWithRetries({ tries: 5, baseDelayMs: 1000 });
+initWithRetries({ tries: 8, baseDelayMs: 1500 });
 
 client.on('message', async (msg) => {
   if (!webhookUrl) return;
