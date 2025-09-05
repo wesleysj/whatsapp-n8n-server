@@ -6,6 +6,7 @@ module.exports = {
       watch: false,
       env: {
         PORT: 8080,
+        API_TOKEN: process.env.API_TOKEN_WA, // pega do .profile
       },
       // Use /healthz for PM2 healthchecks
       health_check: {
