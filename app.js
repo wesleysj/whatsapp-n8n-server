@@ -230,45 +230,50 @@ client.on('message', async (msg) => {
 
 io.on('connection', function(socket) {
   socket.emit('message', 'Server running...');
+  if (ready) {
+    socket.emit('ready', 'Device is ready!');
+    socket.emit('message', 'Device is ready!');
+    socket.emit('qr', './check.svg');
+  }
+});
 
-  client.on('qr', (qr) => {
-      console.log('QR RECEIVED', qr);
-      qrcode.toDataURL(qr, (err, url) => {
-        socket.emit('qr', url);
-        socket.emit('message', 'QRCode received, point the camera on your cell phone!');
-      });
+client.on('qr', (qr) => {
+  console.log('QR RECEIVED', qr);
+  qrcode.toDataURL(qr, (err, url) => {
+    io.emit('qr', url);
+    io.emit('message', 'QRCode received, point the camera on your cell phone!');
   });
+});
 
-  client.on('ready', () => {
-      ready = true;
-      socket.emit('ready', 'Device is ready!');
-      socket.emit('message', 'Device is ready!');
-      socket.emit('qr', './check.svg')
-      console.log('Device is ready!');
-  });
+client.on('ready', () => {
+  ready = true;
+  io.emit('ready', 'Device is ready!');
+  io.emit('message', 'Device is ready!');
+  io.emit('qr', './check.svg');
+  console.log('Device is ready!');
+});
 
-  client.on('authenticated', () => {
-      socket.emit('authenticated', 'Server Authenticated!');
-      socket.emit('message', 'Server Authenticated!');
-      console.log('Server Authenticated!');
-  });
+client.on('authenticated', () => {
+  io.emit('authenticated', 'Server Authenticated!');
+  io.emit('message', 'Server Authenticated!');
+  console.log('Server Authenticated!');
+});
 
-  client.on('auth_failure', function() {
-      socket.emit('message', 'Authentication failed, restarting...');
-      console.error('Authentication failed.');
-  });
+client.on('auth_failure', function() {
+  io.emit('message', 'Authentication failed, restarting...');
+  console.error('Authentication failed.');
+});
 
-  client.on('change_state', state => {
-    console.log('Connection status: ', state );
-  });
+client.on('change_state', state => {
+  console.log('Connection status: ', state );
+});
 
-  client.on('disconnected', (reason) => {
-    ready = false;
-    socket.emit('message', 'Client disconnected!');
-    console.log('Client disconnected!', reason);
-    initWithRetries({ tries: 5, baseDelayMs: 1000 })
-      .catch(err => console.error('Reinitialize failed:', err));
-  });
+client.on('disconnected', (reason) => {
+  ready = false;
+  io.emit('message', 'Client disconnected!');
+  console.log('Client disconnected!', reason);
+  initWithRetries({ tries: 5, baseDelayMs: 1000 })
+    .catch(err => console.error('Reinitialize failed:', err));
 });
 
 // Send message
