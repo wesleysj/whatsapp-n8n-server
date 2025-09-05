@@ -175,7 +175,6 @@ app.post('/webhook', [
 });
 
 
-prepareProfileDir(DATA_PATH);
 const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: DATA_PATH }),
   puppeteer: {
@@ -193,6 +192,59 @@ const client = new Client({
     ]
   }
 });
+
+// --- DEBUG: listeners únicos + logs claros ---
+if (!client.__listenersSet) {
+  try {
+    // Evita warning durante a depuração (ajuste depois se quiser)
+    client.setMaxListeners(20);
+
+    // Se você já tinha lógica dentro destes handlers, mova-a para cá
+    client.on('message', async (msg) => {
+      try {
+        console.log('[WA] event=message from=', msg.from, 'body=', (msg.body || '').slice(0, 120));
+        // ... sua lógica atual do handler "message" (se houver) ...
+      } catch (e) {
+        console.error('[WA] handler(message) error:', e);
+      }
+    });
+
+    // QR no terminal para facilitar pareamento
+    try {
+      const qrcode = require('qrcode-terminal');
+      client.on('qr', (qr) => {
+        console.log('[WA] event=qr (aguardando scan)');
+        try { qrcode.generate(qr, { small: true }); } catch (e) { console.error('[WA] qr render error:', e); }
+      });
+    } catch (e) {
+      // Caso o pacote não esteja instalado, não quebra o app
+      console.warn('[WA] qrcode-terminal não instalado; execute "npm i qrcode-terminal --save" para ver o QR no terminal.');
+      client.on('qr', () => console.log('[WA] event=qr (aguardando scan)'));
+    }
+
+    client.on('ready', () => {
+      console.log('[WA] event=ready (cliente pronto)');
+    });
+
+    client.on('authenticated', () => {
+      console.log('[WA] event=authenticated');
+    });
+
+    client.on('auth_failure', (m) => {
+      console.error('[WA] event=auth_failure msg=', m);
+    });
+
+    client.on('change_state', (state) => {
+      console.log('[WA] event=change_state state=', state);
+    });
+
+    client.on('disconnected', (reason) => {
+      console.log('[WA] event=disconnected reason=', reason);
+    });
+  } finally {
+    client.__listenersSet = true;
+  }
+}
 
 async function initWithRetries({ tries, baseDelayMs }) {
   for (let i = 1; i <= tries; i++) {
@@ -276,7 +328,26 @@ client.on('disconnected', (reason) => {
     .catch(err => console.error('Reinitialize failed:', err));
 });
 
-// Send message
+// Utilitário para mascarar número: mantém DDI+DDD e os 2 últimos dígitos
+function maskNumber(num) {
+  if (!num) return num;
+  const digits = String(num).replace(/\D/g, '');
+  if (digits.length <= 4) return '*'.repeat(digits.length);
+  // Ex.: 5511999999999 -> 55 11 ******** 99
+  const ddi = digits.slice(0, 2);
+  const ddd = digits.slice(2, 4);
+  const meio = digits.slice(4, -2);
+  const fim = digits.slice(-2);
+  return `${ddi}${ddd}${'*'.repeat(meio.length)}${fim}`;
+}
+
+// Utilitário para truncar mensagem nos logs
+function trunc(str, max = 60) {
+  if (!str) return '';
+  return str.length > max ? `${str.slice(0, max)}…` : str;
+}
+
+// Send message (com validação e logs seguros)
 app.post('/send-message', [
   body('number')
     .trim()
@@ -288,12 +359,8 @@ app.post('/send-message', [
     .trim()
     .notEmpty()
     .escape(),
-  ], async (req, res) => {
-  const errors = validationResult(req).formatWith(({
-    msg
-  }) => {
-    return msg;
-  });
+], async (req, res) => {
+  const errors = validationResult(req).formatWith(({ msg }) => msg);
 
   if (!errors.isEmpty()) {
     return res.status(422).json({
@@ -304,21 +371,43 @@ app.post('/send-message', [
 
   const number = Util.formatPhoneNumber(req.body.number);
   const message = req.body.message;
-  
-  client.sendMessage(number, message).then(response => {
-    res.status(200).json({
+
+  // Verifica se o client está pronto
+  if (!client?.info) {
+    console.error('[send-message] client not ready');
+    return res.status(503).json({
+      status: false,
+      message: 'WhatsApp client não está pronto. Escaneie o QR e aguarde READY.'
+    });
+  }
+
+  try {
+    console.info('[send-message] tentando enviar',
+      { to: maskNumber(number), preview: trunc(message) });
+
+    const response = await client.sendMessage(number, message);
+
+    console.info('[send-message] enviado com sucesso',
+      { to: maskNumber(number), id: response?.id?._serialized || response?.id || null });
+
+    return res.status(200).json({
       status: true,
       message: 'Message sent successfully.',
-      response: response
+      response
     });
-  }).catch(err => {
-      res.status(500).json({
-        status: false,
-        message: 'Message not sent.',
-        response: err.text
-      });
-    });  
+  } catch (err) {
+    // Log seguro: não expõe mensagem inteira nem número completo
+    console.error('[send-message] falha no envio',
+      { to: maskNumber(number), error: err?.message || String(err) });
+
+    return res.status(500).json({
+      status: false,
+      message: 'Message not sent.',
+      error: err?.message || String(err)
+    });
+  }
 });
+
 
 // Get chats
 app.get('/chats', (req, res) => {
