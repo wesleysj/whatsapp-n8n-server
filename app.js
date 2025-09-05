@@ -49,7 +49,7 @@ function ensureSingleInstance() {
       if (!isNaN(existingPid)) {
         try {
           process.kill(existingPid, 0);
-          console.error(
+          logger.error(
             `Session already in use for data path ${DATA_PATH} by PID ${existingPid}`
           );
           process.exit(1, 'session in use');
@@ -72,7 +72,7 @@ function ensureSingleInstance() {
       process.exit(0, 'SIGTERM');
     });
   } catch (err) {
-    console.error('Failed to ensure single instance:', err.message);
+    logger.error('Failed to ensure single instance:', err.message);
     process.exit(1, 'ensureSingleInstance failure');
   }
 }
@@ -134,7 +134,7 @@ const validateToken = (req, res, next) => {
   if (token !== EXPECTED) {
     // debug opcional sem vazar segredo
     if (process.env.DEBUG_AUTH === '1') {
-      console.warn('[AUTH] mismatch: recvLen=%d expLen=%d', token.length, EXPECTED.length);
+      logger.warn('[AUTH] mismatch: recvLen=%d expLen=%d', token.length, EXPECTED.length);
     }
     return res.status(401).json({ status: false, message: 'Invalid API token' });
   }
@@ -211,10 +211,10 @@ if (!client.__listenersSet) {
     // Se você já tinha lógica dentro destes handlers, mova-a para cá
     client.on('message', async (msg) => {
       try {
-        console.log('[WA] event=message from=', msg.from, 'body=', (msg.body || '').slice(0, 120));
+        logger.info('[WA] event=message from=', msg.from, 'body=', (msg.body || '').slice(0, 120));
         // ... sua lógica atual do handler "message" (se houver) ...
       } catch (e) {
-        console.error('[WA] handler(message) error:', e);
+        logger.error('[WA] handler(message) error:', e);
       }
     });
 
@@ -222,33 +222,33 @@ if (!client.__listenersSet) {
     try {
       const qrcode = require('qrcode-terminal');
       client.on('qr', (qr) => {
-        console.log('[WA] event=qr (aguardando scan)');
-        try { qrcode.generate(qr, { small: true }); } catch (e) { console.error('[WA] qr render error:', e); }
+        logger.info('[WA] event=qr (aguardando scan)');
+        try { qrcode.generate(qr, { small: true }); } catch (e) { logger.error('[WA] qr render error:', e); }
       });
     } catch (e) {
       // Caso o pacote não esteja instalado, não quebra o app
-      console.warn('[WA] qrcode-terminal não instalado; execute "npm i qrcode-terminal --save" para ver o QR no terminal.');
-      client.on('qr', () => console.log('[WA] event=qr (aguardando scan)'));
+      logger.warn('[WA] qrcode-terminal não instalado; execute "npm i qrcode-terminal --save" para ver o QR no terminal.');
+      client.on('qr', () => logger.info('[WA] event=qr (aguardando scan)'));
     }
 
     client.on('ready', () => {
-      console.log('[WA] event=ready (cliente pronto)');
+      logger.info('[WA] event=ready (cliente pronto)');
     });
 
     client.on('authenticated', () => {
-      console.log('[WA] event=authenticated');
+      logger.info('[WA] event=authenticated');
     });
 
     client.on('auth_failure', (m) => {
-      console.error('[WA] event=auth_failure msg=', m);
+      logger.error('[WA] event=auth_failure msg=', m);
     });
 
     client.on('change_state', (state) => {
-      console.log('[WA] event=change_state state=', state);
+      logger.info('[WA] event=change_state state=', state);
     });
 
     client.on('disconnected', (reason) => {
-      console.log('[WA] event=disconnected reason=', reason);
+      logger.info('[WA] event=disconnected reason=', reason);
     });
   } finally {
     client.__listenersSet = true;
@@ -274,7 +274,7 @@ async function initWithRetries({ tries, baseDelayMs }) {
         name: err?.name,
         code: err?.code,
       };
-      console.warn(
+      logger.warn(
         `[init] attempt=${i} transient=${!!transient} err=${err?.message}`,
         { name: errInfo.name, code: errInfo.code, stack: errInfo.stack }
       );
@@ -307,7 +307,7 @@ client.on('message', async (msg) => {
       body: msg.body,
     });
   } catch (err) {
-    console.error('Error sending webhook:', err.message);
+    logger.error('Error sending webhook:', err.message);
   }
 });
 
@@ -321,7 +321,7 @@ io.on('connection', function(socket) {
 });
 
 client.on('qr', (qr) => {
-  console.log('QR RECEIVED', qr);
+  logger.info('QR RECEIVED', qr);
   qrcode.toDataURL(qr, (err, url) => {
     io.emit('qr', url);
     io.emit('message', 'QRCode received, point the camera on your cell phone!');
@@ -333,30 +333,30 @@ client.on('ready', () => {
   io.emit('ready', 'Device is ready!');
   io.emit('message', 'Device is ready!');
   io.emit('qr', './check.svg');
-  console.log('Device is ready!');
+  logger.info('Device is ready!');
 });
 
 client.on('authenticated', () => {
   io.emit('authenticated', 'Server Authenticated!');
   io.emit('message', 'Server Authenticated!');
-  console.log('Server Authenticated!');
+  logger.info('Server Authenticated!');
 });
 
 client.on('auth_failure', function() {
   io.emit('message', 'Authentication failed, restarting...');
-  console.error('Authentication failed.');
+  logger.error('Authentication failed.');
 });
 
 client.on('change_state', state => {
-  console.log('Connection status: ', state );
+  logger.info('Connection status: ', state );
 });
 
 client.on('disconnected', (reason) => {
   ready = false;
   io.emit('message', 'Client disconnected!');
-  console.log('Client disconnected!', reason);
+  logger.info('Client disconnected!', reason);
   initWithRetries({ tries: 5, baseDelayMs: 1000 })
-    .catch(err => console.error('Reinitialize failed:', err));
+    .catch(err => logger.error('Reinitialize failed:', err));
 });
 
 // Send message (com validação e logs seguros)
@@ -386,7 +386,7 @@ app.post('/send-message', [
 
   // Verifica se o client está pronto
   if (!client?.info) {
-    console.error('[send-message] client not ready');
+    logger.error('[send-message] client not ready');
     return res.status(503).json({
       status: false,
       message: 'WhatsApp client não está pronto. Escaneie o QR e aguarde READY.'
@@ -394,12 +394,12 @@ app.post('/send-message', [
   }
 
   try {
-    console.info('[send-message] tentando enviar',
+    logger.info('[send-message] tentando enviar',
       { to: Util.maskNumber(number), preview: Util.trunc(message) });
 
     const response = await client.sendMessage(number, message);
 
-    console.info('[send-message] enviado com sucesso',
+    logger.info('[send-message] enviado com sucesso',
       { to: Util.maskNumber(number), id: response?.id?._serialized || response?.id || null });
 
     return res.status(200).json({
@@ -409,7 +409,7 @@ app.post('/send-message', [
     });
   } catch (err) {
     // Log seguro: não expõe mensagem inteira nem número completo
-    console.error('[send-message] falha no envio',
+    logger.error('[send-message] falha no envio',
       { to: Util.maskNumber(number), error: err?.message || String(err) });
 
     return res.status(500).json({
@@ -472,12 +472,12 @@ app.get('/group-participants', [
 });
 
 
-server.listen(port, function() {  console.log('App running on *: ' + port);});
+server.listen(port, function() {  logger.info('App running on *: ' + port);});
 
 async function gracefulShutdown(signal, err) {
-  console.log(`Received ${signal}`);
+  logger.info(`Received ${signal}`);
   if (err) {
-    console.error(err);
+    logger.error(err);
   }
 
   if (typeof app.set === 'function') {
@@ -487,7 +487,7 @@ async function gracefulShutdown(signal, err) {
   try {
     await client.destroy();
   } catch (destroyErr) {
-    console.error('Error destroying client:', destroyErr);
+    logger.error('Error destroying client:', destroyErr);
   }
 
   try {
@@ -496,13 +496,13 @@ async function gracefulShutdown(signal, err) {
       await browser.close();
     }
   } catch (browserErr) {
-    console.error('Error closing browser:', browserErr);
+    logger.error('Error closing browser:', browserErr);
   }
 
   try {
     await new Promise((resolve) => server.close(resolve));
   } catch (serverErr) {
-    console.error('Error closing server:', serverErr);
+    logger.error('Error closing server:', serverErr);
   }
 
   const code = signal === 'SIGINT' ? 0 : 1;
