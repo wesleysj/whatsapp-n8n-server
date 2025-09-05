@@ -16,7 +16,6 @@ const logger = require('./util/logger');
 const Util = require('./util/Util');
 const { prepareProfileDir } = require('./util/prepareProfileDir');
 
-const API_TOKEN = process.env.API_TOKEN;
 const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
 const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
 const chromePath =
@@ -79,6 +78,8 @@ function ensureSingleInstance() {
 }
 
 ensureSingleInstance();
+const sessionPath = path.join(DATA_PATH, `session-${SESSION_NAME}`);
+prepareProfileDir(sessionPath);
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -102,7 +103,7 @@ app.use(express.json());
 app.use(express.urlencoded({
   extended: true
 }));
-app.use(express.static(path.join(__dirname, "public")))
+app.use(express.static(path.join(__dirname, "public")));
 app.get('/healthz', (req, res) => {
   if (ready) {
     return res.status(200).send('OK');
@@ -191,11 +192,9 @@ const client = new Client({
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--disable-extensions',
       '--no-first-run',
       '--no-zygote',
-      '--single-process',
+      '--disable-gpu',
     ],
   },
   // padronizar user-agent ajuda algumas vezes
@@ -259,6 +258,7 @@ if (!client.__listenersSet) {
 async function initWithRetries({ tries, baseDelayMs }) {
   for (let i = 1; i <= tries; i++) {
     try {
+      prepareProfileDir(sessionPath);
       await client.initialize();
       return;
     } catch (err) {
@@ -342,25 +342,6 @@ client.on('disconnected', (reason) => {
     .catch(err => console.error('Reinitialize failed:', err));
 });
 
-// Utilitário para mascarar número: mantém DDI+DDD e os 2 últimos dígitos
-function maskNumber(num) {
-  if (!num) return num;
-  const digits = String(num).replace(/\D/g, '');
-  if (digits.length <= 4) return '*'.repeat(digits.length);
-  // Ex.: 5511999999999 -> 55 11 ******** 99
-  const ddi = digits.slice(0, 2);
-  const ddd = digits.slice(2, 4);
-  const meio = digits.slice(4, -2);
-  const fim = digits.slice(-2);
-  return `${ddi}${ddd}${'*'.repeat(meio.length)}${fim}`;
-}
-
-// Utilitário para truncar mensagem nos logs
-function trunc(str, max = 60) {
-  if (!str) return '';
-  return str.length > max ? `${str.slice(0, max)}…` : str;
-}
-
 // Send message (com validação e logs seguros)
 app.post('/send-message', [
   body('number')
@@ -397,12 +378,12 @@ app.post('/send-message', [
 
   try {
     console.info('[send-message] tentando enviar',
-      { to: maskNumber(number), preview: trunc(message) });
+      { to: Util.maskNumber(number), preview: Util.trunc(message) });
 
     const response = await client.sendMessage(number, message);
 
     console.info('[send-message] enviado com sucesso',
-      { to: maskNumber(number), id: response?.id?._serialized || response?.id || null });
+      { to: Util.maskNumber(number), id: response?.id?._serialized || response?.id || null });
 
     return res.status(200).json({
       status: true,
@@ -412,7 +393,7 @@ app.post('/send-message', [
   } catch (err) {
     // Log seguro: não expõe mensagem inteira nem número completo
     console.error('[send-message] falha no envio',
-      { to: maskNumber(number), error: err?.message || String(err) });
+      { to: Util.maskNumber(number), error: err?.message || String(err) });
 
     return res.status(500).json({
       status: false,
