@@ -58,10 +58,23 @@ All requests require an API token. Generate a token with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Start the server with the token exported as `API_TOKEN`:
+Insert your API Token on your ~/.profile file
 
 ```
-API_TOKEN=<token> npm start
+export API_TOKEN_WA="your token here"
+```
+
+You can do this with:
+
+```
+echo 'export API_TOKEN_WA="your_token_here"' >> ~/.profile
+source ~/.profile
+```
+
+Start the server with via pm2 with token 
+
+```
+pm2 start ecosystem.config.js
 ```
 
 Requests without this token, or with an invalid token, receive an `HTTP 401` response. Include the token using the `Authorization` header or `api_key` query parameter.
