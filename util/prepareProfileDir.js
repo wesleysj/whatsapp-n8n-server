@@ -19,19 +19,31 @@ function prepareProfileDir(
     return;
   }
 
-  let hasProcess = false;
+  let pids = [];
   try {
-    execSync(`pgrep -f "chrome.*--user-data-dir=${dataPath}"`, { stdio: 'ignore' });
-    hasProcess = true;
+    const stdout = execSync(
+      `pgrep -f "chrome.*--user-data-dir=${dataPath}"`,
+      { encoding: 'utf8' }
+    );
+    pids = stdout
+      .split(/\s+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
   } catch (err) {
-    hasProcess = false;
+    pids = [];
   }
 
-  if (!hasProcess) {
-    for (const file of fs.readdirSync(dataPath)) {
-      if (file.startsWith('Singleton')) {
-        fs.rmSync(path.join(dataPath, file), { force: true });
-      }
+  for (const pid of pids) {
+    try {
+      process.kill(Number(pid), 'SIGKILL');
+    } catch (err) {
+      // ignore
+    }
+  }
+
+  for (const file of fs.readdirSync(dataPath)) {
+    if (file.startsWith('Singleton')) {
+      fs.rmSync(path.join(dataPath, file), { force: true });
     }
   }
 }
