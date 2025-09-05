@@ -268,7 +268,24 @@ async function initWithRetries({ tries, baseDelayMs }) {
         /ProtocolError|TimeoutError|timed out/i.test(err?.message) || err?.name === 'TimeoutError';
 
       const transient = isNet || isTimeout || err?.name === 'TargetCloseError';
-      console.warn(`[init] attempt=${i} transient=${!!transient} err=`, err?.message);
+      const errInfo = {
+        message: err?.message,
+        stack: err?.stack,
+        name: err?.name,
+        code: err?.code,
+      };
+      console.warn(
+        `[init] attempt=${i} transient=${!!transient} err=${err?.message}`,
+        { name: errInfo.name, code: errInfo.code, stack: errInfo.stack }
+      );
+      logger.error(
+        JSON.stringify({
+          event: 'init.retry_error',
+          attempt: i,
+          transient: !!transient,
+          ...errInfo,
+        })
+      );
 
       if (!transient || i === tries) throw err;
 
