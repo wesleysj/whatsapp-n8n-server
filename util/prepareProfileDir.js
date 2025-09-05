@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const logger = require('./logger');
 
 /**
  * Ensure the profile directory exists and clean leftover Chrome locks.
@@ -31,13 +32,14 @@ function prepareProfileDir(
       .filter(Boolean);
   } catch (err) {
     pids = [];
+    logger.warn('Failed to find running Chrome processes:', err.message || err);
   }
 
   for (const pid of pids) {
     try {
       process.kill(Number(pid), 'SIGKILL');
     } catch (err) {
-      // ignore
+      logger.warn(`Failed to kill Chrome process ${pid}:`, err.message || err);
     }
   }
 
