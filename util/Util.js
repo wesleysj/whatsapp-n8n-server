@@ -15,9 +15,9 @@ class Util {
    * @private
    */
   static formatPhoneNumber(number) {
-    const numberDDI = number.substr(0, 2);
-    const numberDDD = number.substr(2, 2);
-    const numberUser = number.substr(-8, 8);
+    const numberDDI = number.slice(0, 2);
+    const numberDDD = number.slice(2, 4);
+    const numberUser = number.slice(-8);
     
     if (numberDDI !== "55") {
       number = number + "@c.us";
@@ -32,5 +32,21 @@ class Util {
     return number;
   }
   
+  static maskNumber(num) {
+    if (!num) return num;
+    const digits = String(num).replace(/\D/g, '');
+    if (digits.length <= 4) return '*'.repeat(digits.length);
+    const ddi = digits.slice(0, 2);
+    const ddd = digits.slice(2, 4);
+    const meio = digits.slice(4, -2);
+    const fim = digits.slice(-2);
+    return `${ddi}${ddd}${'*'.repeat(meio.length)}${fim}`;
+  }
+
+  static trunc(str, max = 60) {
+    if (!str) return '';
+    return str.length > max ? `${str.slice(0, max)}…` : str;
+  }
 }
+
 module.exports = Util;
