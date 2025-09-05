@@ -103,42 +103,43 @@ app.use(express.urlencoded({
   extended: true
 }));
 app.use(express.static(path.join(__dirname, "public")))
-const validateToken = (req, res, next) => {
-  if (!API_TOKEN) {
-    return res
-      .status(401)
-      .json({ status: false, message: "API token is required" });
-  }
-
-  const auth = req.headers["authorization"];
-  const token =
-    auth && auth.startsWith("Bearer ")
-      ? auth.substring(7)
-      : req.query.api_key;
-
-  if (!token) {
-    return res
-      .status(401)
-      .json({ status: false, message: "API token is required" });
-  }
-
-  if (token !== API_TOKEN) {
-    return res
-      .status(401)
-      .json({ status: false, message: "Invalid API token" });
-  }
-
-  next();
-};
-
-app.use(validateToken);
-
 app.get('/healthz', (req, res) => {
   if (ready) {
     return res.status(200).send('OK');
   }
   res.status(503).send('Service Unavailable');
 });
+const validateToken = (req, res, next) => {
+  // rotas abertas (healthcheck e handshake do socket.io)
+  if (req.path === '/healthz' || (req.path && req.path.startsWith('/socket.io/'))) {
+    return next();
+  }
+
+  // lê do ambiente a cada requisição (evita "congelar" valor na inicialização)
+  const EXPECTED = process.env.API_TOKEN || process.env.API_TOKEN_WA;
+
+  if (!EXPECTED) {
+    return res
+      .status(500)
+      .json({ status: false, message: 'Server misconfigured: API token missing' });
+  }
+
+  const auth = req.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  const token = (m && m[1]) || req.get('x-api-key') || req.query.api_key;
+
+  if (!token) {
+    return res.status(401).json({ status: false, message: 'API token is required' });
+  }
+
+  if (token !== EXPECTED) {
+    return res.status(401).json({ status: false, message: 'Invalid API token' });
+  }
+
+  next();
+};
+
+app.use(validateToken);
 
 app.post('/webhook', [
   body('url')
