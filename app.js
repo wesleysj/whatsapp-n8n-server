@@ -110,29 +110,31 @@ app.get('/healthz', (req, res) => {
   res.status(503).send('Service Unavailable');
 });
 const validateToken = (req, res, next) => {
-  // rotas abertas (healthcheck e handshake do socket.io)
+  // rotas públicas
   if (req.path === '/healthz' || (req.path && req.path.startsWith('/socket.io/'))) {
     return next();
   }
 
-  // lê do ambiente a cada requisição (evita "congelar" valor na inicialização)
-  const EXPECTED = process.env.API_TOKEN || process.env.API_TOKEN_WA;
+  const EXPECTED_RAW = process.env.API_TOKEN || process.env.API_TOKEN_WA;
+  const EXPECTED = (EXPECTED_RAW || '').trim();
 
   if (!EXPECTED) {
-    return res
-      .status(500)
-      .json({ status: false, message: 'Server misconfigured: API token missing' });
+    return res.status(500).json({ status: false, message: 'Server misconfigured: API token missing' });
   }
 
   const auth = req.get('authorization') || '';
   const m = auth.match(/^Bearer\s+(.+)$/i);
-  const token = (m && m[1]) || req.get('x-api-key') || req.query.api_key;
+  const token = (m && m[1]) ? m[1].trim() : (req.get('x-api-key') || req.query.api_key || '').trim();
 
   if (!token) {
     return res.status(401).json({ status: false, message: 'API token is required' });
   }
 
   if (token !== EXPECTED) {
+    // debug opcional sem vazar segredo
+    if (process.env.DEBUG_AUTH === '1') {
+      console.warn('[AUTH] mismatch: recvLen=%d expLen=%d', token.length, EXPECTED.length);
+    }
     return res.status(401).json({ status: false, message: 'Invalid API token' });
   }
 
