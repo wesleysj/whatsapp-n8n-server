@@ -93,6 +93,9 @@ Define optional variables `SESSION_NAME` and `DATA_PATH` to run multiple indepen
 SESSION_NAME=my-session DATA_PATH=/path/to/data npm start
 ```
 
+If `DATA_PATH` is omitted, a `.wwebjs_auth` folder is created inside the project
+directory by default.
+
 The server aborts on start if another process is using the same `DATA_PATH`.
 
 ## Health check

@@ -17,7 +17,10 @@ const Util = require('./util/Util');
 const { prepareProfileDir } = require('./util/prepareProfileDir');
 
 const SESSION_NAME = process.env.SESSION_NAME || 'client-one';
-const DATA_PATH = process.env.DATA_PATH || '.wwebjs_auth';
+// Resolve data directory to avoid writing under an unexpected working directory
+const DATA_PATH = process.env.DATA_PATH
+  ? path.resolve(process.env.DATA_PATH)
+  : path.resolve(__dirname, '.wwebjs_auth');
 const chromePath =
   process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH;
 let webhookUrl = process.env.WEBHOOK_URL || null;
