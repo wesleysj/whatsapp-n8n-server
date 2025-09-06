@@ -238,8 +238,15 @@ if (!client.__listenersSet) {
       console.log('[WA] event=ready (cliente pronto)');
     });
 
-    client.on('authenticated', () => {
+    client.on('authenticated', async () => {
       console.log('[WA] event=authenticated');
+      try {
+        const state = await client.getState();
+        console.log('[WA] post-auth state=', state);
+      } catch (err) {
+        console.error('[WA] post-auth getState error:', err);
+      }
+      console.log('[WA] post-auth info=', client.info);
     });
 
     client.on('auth_failure', (m) => {
@@ -339,10 +346,17 @@ client.on('ready', () => {
   console.log('Device is ready!');
 });
 
-client.on('authenticated', () => {
+client.on('authenticated', async () => {
   io.emit('authenticated', 'Server Authenticated!');
   io.emit('message', 'Server Authenticated!');
   console.log('Server Authenticated!');
+  try {
+    const state = await client.getState();
+    console.log('Post-auth state:', state);
+  } catch (err) {
+    console.error('Post-auth getState error:', err);
+  }
+  console.log('Post-auth info:', client.info);
 });
 
 client.on('auth_failure', function() {
