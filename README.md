@@ -118,6 +118,20 @@ otherwise responds with `503`.
 Send a message to one contact.
 
 - Method: POST
+- Body:
+
+```
+{
+  "number": "5511987654321",
+  "message": "Hello from the API"
+}
+```
+
+`number` must contain only digits. Provide the full international phone number
+without `+` or separators (for example, `5511987654321` for a São Paulo, Brazil
+number). The server automatically converts it to the WhatsApp `@c.us` format and
+adds the ninth digit for Brazilian mobile numbers when required. The `message`
+field is the text body that will be delivered to the recipient.
 
 ### /chats
 
