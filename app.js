@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const socketIO = require('socket.io');
@@ -437,6 +437,81 @@ app.post('/send-message', [
   }
 });
 
+// --- INICIO DO ENDPOINT SEND-IMAGE (VERSÃO HÍBRIDA) ---
+app.post('/send-image', [
+  body('number')
+    .trim()
+    .notEmpty()
+    .matches(/^\d+$/)
+    .withMessage('Number should contain digits only'),
+  // Validação customizada: exige ou 'url' ou 'data' dentro de media
+  body('media').custom((value) => {
+    if (!value.url && !value.data) {
+      throw new Error('You must provide either media.url or media.data');
+    }
+    return true;
+  }),
+], async (req, res) => {
+  const errors = validationResult(req).formatWith(({ msg }) => msg);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      status: false,
+      message: errors.mapped(),
+    });
+  }
+
+  if (!client?.info) {
+    return res.status(503).json({
+      status: false,
+      message: 'WhatsApp client não está pronto.',
+    });
+  }
+
+  try {
+    const number = Util.formatPhoneNumber(req.body.number);
+    const { type, mimetype, data, url, filename, caption } = req.body.media;
+    
+    let media;
+
+    if (url) {
+      // OPÇÃO 1: Enviar por URL (O servidor baixa e envia)
+      console.info('[send-image] baixando media da URL:', url);
+      
+      // unsafeMime: true permite baixar mesmo se o servidor de origem não informar o tipo correto
+      media = await MessageMedia.fromUrl(url, { unsafeMime: true });
+      
+      // Se você quiser forçar o nome do arquivo, caso a URL não tenha
+      if (filename) media.filename = filename;
+      
+    } else {
+      // OPÇÃO 2: Enviar por Base64 (Como antes)
+      let cleanData = data;
+      if (cleanData.startsWith('data:')) {
+        cleanData = cleanData.split(',')[1];
+      }
+      media = new MessageMedia(mimetype, cleanData, filename || 'file');
+    }
+
+    const response = await client.sendMessage(number, media, {
+      caption: caption || '',
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: 'Mídia enviada com sucesso',
+      response,
+    });
+
+  } catch (err) {
+    console.error('[send-image] erro', err.message);
+    return res.status(500).json({
+      status: false,
+      message: 'Falha ao enviar mídia',
+      error: err.message,
+    });
+  }
+});
 
 // Get chats
 app.get('/chats', (req, res) => {
