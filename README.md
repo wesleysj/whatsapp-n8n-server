@@ -172,3 +172,63 @@ When set, every incoming message triggers a POST request to the configured URL w
   "body": "<message text>"
 }
 ```
+
+## 📸 Enviar Mídia (Imagens/Arquivos)
+
+O endpoint `/send-image` permite enviar imagens, arquivos ou documentos para contatos e grupos. Ele aceita duas formas de envio:
+1. **URL:** O servidor baixa o arquivo automaticamente e envia (Recomendado).
+2. **Base64:** O conteúdo do arquivo é enviado diretamente no corpo da requisição.
+
+**Endpoint:** `POST /send-image`
+**Auth:** Requer Header `Authorization: Bearer SEU_TOKEN`
+
+### ⚠️ Configuração Importante (Limite de Tamanho)
+Por padrão, o servidor aceita apenas requisições pequenas (aprox. 100kb). Para enviar imagens via **Base64**, você deve aumentar o limite do `body-parser` no seu arquivo `app.js`:
+
+```javascript
+// Procure onde o express.json() é iniciado e altere para:
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+```
+*Se não fizer isso, envios em Base64 retornarão erro `413 Payload Too Large`.*
+
+---
+
+### Exemplo 1: Enviando via URL (Mais leve)
+Ideal para enviar arquivos que já estão na internet. O payload é pequeno e rápido.
+
+```json
+{
+  "number": "5511999999999",
+  "media": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/1200px-WhatsApp.svg.png",
+    "caption": "Olha essa imagem enviada via link!"
+  }
+}
+```
+
+### Exemplo 2: Enviando via Base64
+Ideal para arquivos locais ou gerados dinamicamente (ex: n8n, Typebot).
+
+```json
+{
+  "number": "5511999999999",
+  "media": {
+    "mimetype": "image/png",
+    "data": "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",
+    "filename": "imagem.png",
+    "caption": "Imagem enviada via código Base64"
+  }
+}
+```
+
+#### Parâmetros do Objeto `media`:
+| Campo | Tipo | Obrigatório? | Descrição |
+| :--- | :--- | :--- | :--- |
+| `url` | string | Sim* | Link direto do arquivo (se não usar `data`). |
+| `data` | string | Sim* | Conteúdo em Base64 (se não usar `url`). |
+| `mimetype` | string | Não | Tipo do arquivo (ex: `image/jpeg`). Necessário apenas se usar Base64. |
+| `filename` | string | Não | Nome do arquivo que aparecerá para o usuário. |
+| `caption` | string | Não | Texto/Legenda que acompanha a mídia. |
+
+*\* É obrigatório fornecer ou `url` ou `data`.*
