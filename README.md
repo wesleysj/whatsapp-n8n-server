@@ -1,174 +1,150 @@
-# Whatsapp N8N Server
-A small server to run in localhost that provides some endpoints to access Whatsapp API client.
+# WhatsApp API Server for n8n
 
-It uses [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) library.
+Uma API REST simples baseada em [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) projetada para facilitar a integração do WhatsApp com ferramentas de automação como **n8n**, Typebot, Bubble, etc.
 
-## Installation
+## 🚀 Funcionalidades
 
+- **Autenticação Segura** via Token (Bearer).
+- **Envio de Texto** (Individual e Grupos).
+- **Envio de Mídia** (Imagens/Arquivos) via **URL** ou **Base64**.
+- **Webhooks** para receber mensagens.
+- **Multi-Sessão** (via variáveis de ambiente).
 
-Clone this repository: `git clone https://github.com/wesleysj/whatsapp-n8n-server.git`
+---
 
-Install dependencies: `npm install`
+## 🛠️ Configuração
 
-## Prerequisites
+Crie um arquivo `.env` na raiz do projeto:
 
-This project uses Puppeteer through `whatsapp-web.js`. Chromium requires a few
-system libraries on Ubuntu/Debian. Install them before running the server:
+```env
+PORT=8080
+SESSION_NAME=minha-sessao
+API_TOKEN=meu-segredo-super-seguro
+WEBHOOK_URL=https://n8n.meudominio.com/webhook/whatsapp
+# Opcional: Caminho do Chrome se não detectar automaticamente
+# CHROME_PATH=/usr/bin/google-chrome-stable
+```
+
+### Instalação e Execução
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y \
-  ca-certificates \
-  fonts-liberation \
-  libappindicator3-1 \
-  libasound2 \
-  libatk-bridge2.0-0 \
-  libatk1.0-0 \
-  libcups2 \
-  libdbus-1-3 \
-  libxkbcommon0 \
-  libxcomposite1 \
-  libxdamage1 \
-  libxrandr2 \
-  libgbm1 \
-  libgtk-3-0 \
-  libnss3 \
-  lsb-release \
-  xdg-utils \
-  libxss1
+# Instalar dependências
+npm install
+
+# Iniciar servidor
+node app-2025-12-24.js
 ```
 
-Run these commands before executing `npm start`.
+Ao iniciar, verifique o console ou acesse `http://localhost:8080` (se houver interface) para escanear o QR Code.
 
+---
 
-## Run server
+## 🔐 Autenticação
 
-`npm start`
+Todos os endpoints (exceto health check) exigem autenticação.
 
+**Header:**
+`Authorization: Bearer meu-segredo-super-seguro`
 
-## Connect device
+Ou alternativamente via Query Param: `?api_key=meu-segredo-super-seguro`
 
-Open a web browser `http://localhost:8080` and scan the QRCode.
+---
 
-## Authentication
+## 📚 Documentação da API
 
-All requests require an API token. Generate a token with:
+### 1. Enviar Mensagem de Texto
+**POST** `/send-message`
 
-```
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+| Campo | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `number` | `string` | Número com DDI e DDD (ex: 5511999999999) ou ID do grupo |
+| `message` | `string` | Texto da mensagem |
 
-Insert your API Token on your ~/.profile file
-
-```
-export API_TOKEN_WA="your token here"
-```
-
-You can do this with:
-
-```
-echo 'export API_TOKEN_WA="your_token_here"' >> ~/.profile
-source ~/.profile
-```
-
-Start the server with via pm2 with token 
-
-```
-pm2 start ecosystem.config.js
-```
-
-Requests without this token, or with an invalid token, receive an `HTTP 401` response. Include the token using the `Authorization` header or `api_key` query parameter.
-
-Optionally define `WEBHOOK_URL` to automatically forward incoming messages to this URL:
-
-```
-WEBHOOK_URL=https://example.com/webhook npm start
-```
-
-You can update this value later using the `/webhook` endpoint.
-
-Define optional variables `SESSION_NAME` and `DATA_PATH` to run multiple independent sessions:
-
-```
-SESSION_NAME=my-session DATA_PATH=/path/to/data npm start
-```
-
-If `DATA_PATH` is omitted, a `.wwebjs_auth` folder is created inside the project
-directory by default.
-
-The server aborts on start if another process is using the same `DATA_PATH`.
-
-## Health check
-
-The server exposes `GET /healthz` which reports readiness. Use this route for
-health checks in Nginx or PM2. Example configuration files `nginx.conf` and
-`ecosystem.config.js` are provided.
-
-## Endpoints
-
-### /healthz
-
-Health check endpoint. Returns status `200` only when the WhatsApp client is ready;
-otherwise responds with `503`.
-
-- Method: GET
-
-### /send-message
-
-Send a message to one contact.
-
-- Method: POST
-- Body:
-
-```
+**Exemplo de Body (JSON):**
+```json
 {
-  "number": "5511987654321",
-  "message": "Hello from the API"
+  "number": "5511999999999",
+  "message": "Olá! Enviado via API."
 }
 ```
 
-`number` must contain only digits. Provide the full international phone number
-without `+` or separators (for example, `5511987654321` for a São Paulo, Brazil
-number). The server automatically converts it to the WhatsApp `@c.us` format and
-adds the ninth digit for Brazilian mobile numbers when required. The `message`
-field is the text body that will be delivered to the recipient.
+---
 
-### /chats
+### 2. Enviar Imagem / Mídia
+**POST** `/send-image`
 
-Get all chats (groups included).
+Este endpoint é híbrido. Você pode enviar a mídia fornecendo um **link (URL)** ou o arquivo em **Base64**.
 
-- Method: GET
+#### Opção A: Enviar via URL (Recomendado)
+O servidor fará o download da imagem e enviará.
 
-### /group-participants
+| Campo | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `number` | `string` | Número de destino |
+| `media.url` | `string` | Link direto da imagem/arquivo |
+| `media.caption` | `string` | Legenda (Opcional) |
 
-Get all participants in a chat group.
-
-- Method: GET
-
-### /webhook
-
-Configure the URL that will receive incoming WhatsApp messages.
-
-The provided URL must be a valid HTTP or HTTPS address.
-
-- Method: POST
-- Body:
-
-```
+**Exemplo (JSON):**
+```json
 {
-  "url": "https://example.com/webhook"
+  "number": "5511999999999",
+  "media": {
+    "url": "https://exemplo.com/minha-foto.jpg",
+    "caption": "Olha essa foto que baixei da internet!"
+  }
 }
 ```
 
-#### Payload sent to the webhook
+#### Opção B: Enviar via Base64
+Ideal para arquivos gerados localmente ou no n8n.
 
-When set, every incoming message triggers a POST request to the configured URL with the following JSON body:
+| Campo | Tipo | Descrição |
+| :--- | :--- | :--- |
+| `number` | `string` | Número de destino |
+| `media.data` | `string` | String Base64 do arquivo |
+| `media.mimetype` | `string` | Tipo do arquivo (ex: image/jpeg, application/pdf) |
+| `media.filename` | `string` | Nome do arquivo (Opcional) |
+| `media.caption` | `string` | Legenda (Opcional) |
 
-```
+**Exemplo (JSON):**
+```json
 {
-  "id": "<message id>",
-  "from": "<sender>",
-  "to": "<receiver>",
-  "body": "<message text>"
+  "number": "5511999999999",
+  "media": {
+    "data": "JVBERi0xLjQKJ...", 
+    "mimetype": "application/pdf",
+    "filename": "boleto.pdf",
+    "caption": "Segue seu boleto"
+  }
 }
 ```
+
+---
+
+### 3. Outros Endpoints
+
+- **GET** `/healthz` - Verifica status do serviço.
+- **POST** `/webhook` - Atualiza a URL de webhook dinamicamente.
+  - Body: `{ "url": "https://..." }`
+
+---
+
+## 🤖 Integração com n8n
+
+Use o nó **HTTP Request**:
+
+1. **Method:** POST
+2. **URL:** `http://seu-servidor:8080/send-image`
+3. **Authentication:** Generic Credential Type -> Header Auth -> `Authorization: Bearer ...`
+4. **Body:** JSON
+
+**Dica para Base64 no n8n:**
+Se usar a opção Base64, utilize o nó *Function* ou expressões para extrair o binário:
+`$binary.data.data` (certifique-se de que é a string pura, o endpoint remove o prefixo `data:...` automaticamente se houver).
+
+---
+
+## ⚠️ Limitações Conhecidas
+
+- **Tamanho do Payload:** Se usar Base64, certifique-se de aumentar o limite do body parser no Express (já configurado para 50mb neste projeto).
+- **Sessão:** O arquivo `.wwebjs_auth` armazena a sessão. Se deletar esta pasta, será necessário escanear o QR Code novamente.
