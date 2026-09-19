@@ -437,6 +437,66 @@ app.post('/send-message', [
   }
 });
 
+// Send group message (com validação e logs seguros)
+app.post('/send-group-message', [
+  body('groupId')
+    .trim()
+    .notEmpty()
+    .matches(/^[\d-]+@g\.us$/)
+    .withMessage('groupId should be a valid WhatsApp group id (e.g. 1203xxxxxxxx-xxxxxxxxxx@g.us)')
+    .escape(),
+  body('message')
+    .trim()
+    .notEmpty()
+    .escape(),
+], async (req, res) => {
+  const errors = validationResult(req).formatWith(({ msg }) => msg);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      status: false,
+      message: errors.mapped()
+    });
+  }
+
+  const groupId = req.body.groupId;
+  const message = req.body.message;
+
+  // Verifica se o client está pronto
+  if (!client?.info) {
+    console.error('[send-group-message] client not ready');
+    return res.status(503).json({
+      status: false,
+      message: 'WhatsApp client não está pronto. Escaneie o QR e aguarde READY.'
+    });
+  }
+
+  try {
+    console.info('[send-group-message] tentando enviar',
+      { to: groupId, preview: Util.trunc(message) });
+
+    const response = await client.sendMessage(groupId, message);
+
+    console.info('[send-group-message] enviado com sucesso',
+      { to: groupId, id: response?.id?._serialized || response?.id || null });
+
+    return res.status(200).json({
+      status: true,
+      message: 'Message sent successfully.',
+      response
+    });
+  } catch (err) {
+    console.error('[send-group-message] falha no envio',
+      { to: groupId, error: err?.message || String(err) });
+
+    return res.status(500).json({
+      status: false,
+      message: 'Message not sent.',
+      error: err?.message || String(err)
+    });
+  }
+});
+
 // --- INICIO DO ENDPOINT SEND-IMAGE (VERSÃO HÍBRIDA) ---
 app.post('/send-image', [
   body('number')

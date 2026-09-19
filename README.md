@@ -133,6 +133,24 @@ number). The server automatically converts it to the WhatsApp `@c.us` format and
 adds the ninth digit for Brazilian mobile numbers when required. The `message`
 field is the text body that will be delivered to the recipient.
 
+### /send-group-message
+
+Send a message to a WhatsApp group.
+
+- Method: POST
+- Body:
+
+```
+{
+  "groupId": "1203xxxxxxxx-xxxxxxxxxx@g.us",
+  "message": "Hello group from the API"
+}
+```
+
+`groupId` must be a valid WhatsApp group id ending in `@g.us` (use `/chats` or
+`/group-participants` to discover the id of a group). The `message` field is
+the text body that will be delivered to the group.
+
 ### /chats
 
 Get all chats (groups included).
