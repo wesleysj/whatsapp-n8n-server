@@ -643,7 +643,8 @@ app.get('/group-participants', [
   query('groupId')
     .trim()
     .notEmpty()
-    .escape(),
+    .matches(/^[\d-]+@g\.us$/)
+    .withMessage('groupId should be a valid WhatsApp group id (e.g. 1203xxxxxxxx-xxxxxxxxxx@g.us)'),
   ], (req, res) => {
   const errors = validationResult(req).formatWith(({ msg }) => msg);
 
