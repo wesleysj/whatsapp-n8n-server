@@ -382,12 +382,12 @@ app.post('/send-message', [
     .trim()
     .notEmpty()
     .matches(/^\d+$/)
-    .withMessage('Number should contain digits only')
-    .escape(),
+    .withMessage('Number should contain digits only'),
   body('message')
     .trim()
     .notEmpty()
-    .escape(),
+    .isLength({ max: 4096 })
+    .withMessage('Message should have at most 4096 characters'),
 ], async (req, res) => {
   const errors = validationResult(req).formatWith(({ msg }) => msg);
 
@@ -443,12 +443,12 @@ app.post('/send-group-message', [
     .trim()
     .notEmpty()
     .matches(/^[\d-]+@g\.us$/)
-    .withMessage('groupId should be a valid WhatsApp group id (e.g. 1203xxxxxxxx-xxxxxxxxxx@g.us)')
-    .escape(),
+    .withMessage('groupId should be a valid WhatsApp group id (e.g. 1203xxxxxxxx-xxxxxxxxxx@g.us)'),
   body('message')
     .trim()
     .notEmpty()
-    .escape(),
+    .isLength({ max: 4096 })
+    .withMessage('Message should have at most 4096 characters'),
 ], async (req, res) => {
   const errors = validationResult(req).formatWith(({ msg }) => msg);
 
