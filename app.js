@@ -107,11 +107,26 @@ app.use(express.urlencoded({
   extended: true
 }));
 app.use(express.static(path.join(__dirname, "public")));
-app.get('/healthz', (req, res) => {
-  if (ready) {
-    return res.status(200).send('OK');
+app.get('/healthz', async (req, res) => {
+  if (!ready) {
+    return res.status(503).send('Service Unavailable');
   }
-  res.status(503).send('Service Unavailable');
+  // ready=true só significa que o evento 'ready' já disparou uma vez;
+  // isso não garante que a página do WhatsApp Web ainda responde (ex: injeção
+  // interna perdida após um conflito de sessão). Confirma com uma chamada leve.
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('getState timeout')), 5000)
+  );
+  try {
+    await Promise.race([client.getState(), timeout]);
+    return res.status(200).send('OK');
+  } catch (err) {
+    console.error('[healthz] getState failed:', err.message);
+    ready = false;
+    initWithRetries({ tries: 5, baseDelayMs: 1000 })
+      .catch(e => console.error('Reinitialize failed:', e));
+    return res.status(503).send('Service Unavailable');
+  }
 });
 const validateToken = (req, res, next) => {
   // rotas públicas
@@ -574,20 +589,53 @@ app.post('/send-image', [
 });
 
 // Get chats
-app.get('/chats', (req, res) => {
-  client.getChats().then(response => {
+app.get('/chats', async (req, res) => {
+  // client.getChats() usa Promise.all internamente: se UM chat falhar ao
+  // serializar (comum com chats @lid, canais/newsletters ou grupos com
+  // metadata inconsistente), a lista inteira quebra. Refaz a mesma lógica
+  // com Promise.allSettled para devolver o que der certo e só reportar o
+  // que falhou, em vez de derrubar o endpoint inteiro.
+  try {
+    const { ok, failed } = await client.pupPage.evaluate(async () => {
+      const list = window.require('WAWebCollections').Chat.getModelsArray();
+      const settled = await Promise.allSettled(
+        list.map((chat) => window.WWebJS.getChatModel(chat))
+      );
+      const ok = [];
+      const failed = [];
+      settled.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value) {
+          ok.push(r.value);
+        } else {
+          failed.push({
+            id: list[i] && list[i].id && list[i].id._serialized,
+            error: r.reason ? String(r.reason.message || r.reason) : 'unknown error',
+          });
+        }
+      });
+      return { ok, failed };
+    });
+
+    if (failed.length) {
+      console.warn('[chats] chats ignorados por erro de serialização:', failed);
+    }
+
     res.status(200).json({
       status: true,
-      message: 'Returning chats',
-      response: response
+      message: failed.length
+        ? `Returning chats (${failed.length} ignored due to serialization error)`
+        : 'Returning chats',
+      response: ok,
+      skipped: failed,
     });
-  }).catch(err => {
-      res.status(500).json({
-        status: false,
-        message: 'Cant return chats.',
-        response: err.text
-      });
-    });  
+  } catch (err) {
+    console.error('[chats] falha ao obter chats:', err && err.stack || err);
+    res.status(500).json({
+      status: false,
+      message: 'Cant return chats.',
+      error: err && err.message || String(err)
+    });
+  }
 });
 
 // Get group participants
