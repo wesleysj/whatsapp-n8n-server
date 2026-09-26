@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whatsapp-w2
+    restart: unless-stopped
+    stop_grace_period: 30s
+    labels:
+      - "autoheal=true"
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - wa_session:/app/.wwebjs_auth
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8080/healthz', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 20s
+      timeout: 8s
+      retries: 3
+      # QR novo pode levar minutos até alguém escanear num setup do zero;
+      # dá folga antes de deixar o autoheal derrubar o container por isso.
+      start_period: 300s
+
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: whatsapp-w2-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  wa_session:
